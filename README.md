@@ -46,7 +46,11 @@ Access settings via the Decky Loader Quick Access Menu:
 - **Enable GFN Indicator**: Toggle the indicator on/off
 - **Logo Size**: Adjust from 32px to 128px (default: 64px)
 - **Glow Intensity**: Control the green glow effect from 0% to 100% (default: 50%)
-- **Position**: Choose from top-left, top-right, bottom-left, or bottom-right
+- **Position**: Choose from 9 positions including corners, centers, and custom X/Y coordinates
+  - Top Left, Top Right, Top Center
+  - Bottom Left, Bottom Right, Bottom Center
+  - Center Left, Center Right
+  - Custom (X/Y) - Set exact pixel position with sliders
 - **Refresh Database**: Update the game list from Steam curators (takes 30-60 seconds)
 - **Clear Cache**: Clear cached game availability data
 
@@ -172,6 +176,21 @@ The database can be updated in two ways:
 1. Try disabling the glow effect (set intensity to 0%)
 2. Reduce the logo size
 3. Clear the cache if it's grown too large
+
+## Known Issues
+
+### Icon/Logo Not Displaying
+
+**Status**: Currently working on this issue
+
+The NVIDIA GeForce NOW logo may not appear on game pages in some cases. This is being investigated and will be fixed in an upcoming release.
+
+**Workaround**:
+- Ensure the plugin is enabled in settings
+- Try refreshing the page or navigating to a different game and back
+- Check Decky Loader logs at `~/homebrew/logs/` for any error messages
+
+If you encounter this issue, please report it with details on the [Issues page](https://github.com/paul-PKH/gfn-for-deck/issues).
 
 ## Contributing
 
