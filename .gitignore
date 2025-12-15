@@ -1,41 +1,10 @@
-# Dependencies
 node_modules/
-pnpm-lock.yaml
-
-# Build output
 dist/
-*.js.map
-
-# Logs
-*.log
-npm-debug.log*
-pnpm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment
-.env
-.env.local
-.env.*.local
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
+gfn-for-deck-package/
+gfn-for-deck-package.zip
 .DS_Store
-Thumbs.db
-
-# Python
+*.log
 __pycache__/
-*.py[cod]
-*$py.class
+*.pyc
+*.pyo
 *.so
-.Python
-*.egg-info/
-
-# Settings
-settings.json
