@@ -69,6 +69,16 @@ export const SettingsPanel: VFC<SettingsPanelProps> = ({
         </PanelSectionRow>
 
         <PanelSectionRow>
+          <ToggleField
+            label="Hide Unavailable Games"
+            description="Only show the badge when a game is on GeForce NOW"
+            checked={settings.hideUnavailable}
+            onChange={(value) => updateSetting('hideUnavailable', value)}
+            disabled={!settings.enabled}
+          />
+        </PanelSectionRow>
+
+        <PanelSectionRow>
           <SliderField
             label="Logo Size"
             description={`Current size: ${settings.logoSize}px`}

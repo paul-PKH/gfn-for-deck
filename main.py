@@ -29,40 +29,49 @@ def fetch_curator_games(curator_id: int, batch_size: int = 100) -> Dict[str, Dic
     while True:
         url = f"https://store.steampowered.com/curator/{curator_id}/ajaxgetfilteredrecommendations/render/?query=&start={start}&count={batch_size}"
 
-        try:
-            response = requests.get(url, timeout=10)
-            data = response.json()
+        # Retry the HTTP fetch up to 3 times with exponential backoff
+        data = None
+        for attempt in range(3):
+            try:
+                response = requests.get(url, timeout=10)
+                data = response.json()
+                break  # success — exit retry loop
+            except Exception as e:
+                wait = 2 ** attempt  # 1s, 2s, 4s
+                logger.warning(f"  Attempt {attempt + 1}/3 failed for curator {curator_id}: {e}. Retrying in {wait}s...")
+                if attempt < 2:
+                    time.sleep(wait)
+                else:
+                    logger.error(f"  All retries exhausted for curator {curator_id} at offset {start}")
 
-            html = data.get('results_html', '')
-            total_count = int(data.get('total_count', 0))
+        if data is None:
+            break  # all retries failed — stop pagination
 
-            # Extract app IDs from HTML
-            appids = list(set(re.findall(r'data-ds-appid="(\d+)"', html)))
+        html = data.get('results_html', '')
+        total_count = int(data.get('total_count', 0))
 
-            if not appids:
-                break
+        # Extract app IDs from HTML
+        appids = list(set(re.findall(r'data-ds-appid="(\d+)"', html)))
 
-            logger.info(f"  Fetched {len(appids)} games (offset {start}/{total_count})")
-
-            # Add to games dict
-            for appid in appids:
-                games[appid] = {
-                    "available": True,
-                    "curator_id": curator_id
-                }
-
-            start += batch_size
-
-            # Stop if we've fetched everything
-            if start >= total_count:
-                break
-
-            # Be nice to Steam's servers
-            time.sleep(0.5)
-
-        except Exception as e:
-            logger.error(f"  Error fetching from curator {curator_id}: {e}")
+        if not appids:
             break
+
+        logger.info(f"  Fetched {len(appids)} games (offset {start}/{total_count})")
+
+        for appid in appids:
+            games[appid] = {
+                "available": True,
+                "curator_id": curator_id
+            }
+
+        start += batch_size
+
+        # Stop if we've fetched everything
+        if start >= total_count:
+            break
+
+        # Be nice to Steam's servers
+        time.sleep(0.5)
 
     return games
 
@@ -112,6 +121,8 @@ class Plugin:
 
     # Local games database
     _local_games_db: Dict[str, Dict] = {}
+    _db_last_updated: Optional[str] = None
+    _db_lock: Optional[asyncio.Lock] = None
     _plugin_dir: Optional[Path] = None
 
     async def check_gfn_availability(self, appid: str) -> Dict[str, any]:
@@ -193,7 +204,8 @@ class Plugin:
         """Get local database info for debugging"""
         return {
             "db_size": len(self._local_games_db),
-            "plugin_dir": str(self._plugin_dir) if self._plugin_dir else None
+            "plugin_dir": str(self._plugin_dir) if self._plugin_dir else None,
+            "last_updated": self._db_last_updated
         }
 
     async def refresh_database(self) -> Dict[str, any]:
@@ -212,9 +224,10 @@ class Plugin:
 
             logger.info(f"Total unique games fetched: {len(all_games)}")
 
-            # Update in-memory database
+            # Update in-memory database (lock protects the swap)
             old_count = len(self._local_games_db)
-            self._local_games_db = all_games
+            async with self._db_lock:
+                self._local_games_db = all_games
             new_count = len(self._local_games_db)
 
             # Save to file
@@ -225,18 +238,20 @@ class Plugin:
                 defaults_dir = self._plugin_dir / "defaults"
                 defaults_dir.mkdir(parents=True, exist_ok=True)
 
+                last_updated = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 output = {
                     "comment": "GeForce NOW supported games from Steam curators",
-                    "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "last_updated": last_updated,
                     "sources": [
                         {"curator_id": 38115929, "name": "Geforce Now Friendly"},
                         {"curator_id": 45481916, "name": "Geforce Now Friendly Part 2"}
                     ],
                     "games": {
-                        appid: {"name": f"Game {appid}", "available": True}
+                        appid: {"available": True}
                         for appid in sorted(all_games.keys())
                     }
                 }
+                self._db_last_updated = last_updated
 
                 try:
                     with open(db_path, 'w') as f:
@@ -309,6 +324,7 @@ class Plugin:
                 with open(db_path, 'r') as f:
                     data = json.load(f)
                     self._local_games_db = data.get("games", {})
+                    self._db_last_updated = data.get("last_updated")
                 logger.info(f"Loaded {len(self._local_games_db)} games from local database")
             except Exception as e:
                 logger.error(f"Error loading local games database: {e}")
@@ -319,6 +335,9 @@ class Plugin:
     # Decky plugin lifecycle methods
     async def _main(self):
         logger.info("GFN for Deck plugin loaded")
+
+        # Initialize async lock for DB writes
+        self._db_lock = asyncio.Lock()
 
         # Initialize plugin directory
         plugin_dir = os.environ.get("DECKY_PLUGIN_DIR")
@@ -337,6 +356,21 @@ class Plugin:
 
         # Load local games database
         self._load_local_games_db()
+
+        # Auto-refresh if DB is empty or older than 7 days
+        needs_refresh = len(self._local_games_db) == 0
+        if not needs_refresh and self._db_last_updated:
+            try:
+                last_updated_dt = datetime.strptime(self._db_last_updated, "%Y-%m-%d %H:%M:%S")
+                if datetime.now() - last_updated_dt > timedelta(days=7):
+                    needs_refresh = True
+                    logger.info("Database is older than 7 days, scheduling background refresh")
+            except ValueError:
+                pass  # unparseable timestamp — leave as-is
+
+        if needs_refresh:
+            logger.info("Scheduling background database refresh...")
+            asyncio.create_task(self.refresh_database())
 
     async def _unload(self):
         logger.info("GFN for Deck plugin unloaded")

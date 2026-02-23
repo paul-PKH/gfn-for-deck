@@ -12,6 +12,10 @@ export const GFNLogo: VFC<GFNLogoProps> = ({ available, settings }) => {
     return null;
   }
 
+  if (!available && settings.hideUnavailable) {
+    return null;
+  }
+
   const getPositionStyles = (): CSSProperties => {
     const baseStyles: CSSProperties = {
       position: 'fixed',

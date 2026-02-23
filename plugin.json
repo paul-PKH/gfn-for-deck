@@ -5,6 +5,6 @@
     "publish": {
         "tags": ["geforce now", "cloud gaming", "utility"],
         "description": "Shows GeForce NOW availability indicator on game pages with a green or greyed-out GFN logo",
-        "image": "https://raw.githubusercontent.com/yourusername/gfn-decky/main/assets/logo.png"
+        "image": "https://raw.githubusercontent.com/paul-PKH/gfn-for-deck/main/assets/logo.png"
     }
 }
