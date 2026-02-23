@@ -59,11 +59,17 @@ function GFNIndicator({
     };
   }, [appid, settings.enabled]);
 
-  if (loading || gfnStatus === null || !settings.enabled) {
+  if (!settings.enabled) {
     return null;
   }
 
-  return <GFNLogo available={gfnStatus.available} settings={settings} />;
+  return (
+    <GFNLogo
+      available={gfnStatus?.available ?? false}
+      loading={loading || gfnStatus === null}
+      settings={settings}
+    />
+  );
 }
 
 export function patchGamePage(

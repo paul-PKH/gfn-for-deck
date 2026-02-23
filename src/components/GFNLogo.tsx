@@ -1,18 +1,34 @@
-import React, { VFC, CSSProperties } from 'react';
+import React, { VFC, CSSProperties, useEffect } from 'react';
 import { GFNSettings } from '../types';
 import nvidiaLogo from '../../assets/images/nvidia-logo.png';
 
 interface GFNLogoProps {
   available: boolean;
+  loading?: boolean;
   settings: GFNSettings;
 }
 
-export const GFNLogo: VFC<GFNLogoProps> = ({ available, settings }) => {
-  if (!settings.enabled) {
-    return null;
-  }
+// Inject pulse keyframe animation once
+function ensurePulseStyle() {
+  if (document.getElementById('gfn-skeleton-style')) return;
+  const style = document.createElement('style');
+  style.id = 'gfn-skeleton-style';
+  style.textContent = `
+    @keyframes gfn-pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.15; }
+    }
+    .gfn-skeleton { animation: gfn-pulse 1.4s ease-in-out infinite; }
+  `;
+  document.head.appendChild(style);
+}
 
-  if (!available && settings.hideUnavailable) {
+export const GFNLogo: VFC<GFNLogoProps> = ({ available, loading = false, settings }) => {
+  useEffect(() => {
+    if (settings.enabled) ensurePulseStyle();
+  }, [settings.enabled]);
+
+  if (!settings.enabled) {
     return null;
   }
 
@@ -51,10 +67,31 @@ export const GFNLogo: VFC<GFNLogoProps> = ({ available, settings }) => {
     }
   };
 
+  // Render pulsing skeleton while loading
+  if (loading) {
+    return (
+      <div style={getPositionStyles()}>
+        <div
+          className="gfn-skeleton"
+          style={{
+            width: `${settings.logoSize}px`,
+            height: `${settings.logoSize}px`,
+            borderRadius: '8px',
+            backgroundColor: 'rgba(128, 128, 128, 0.3)',
+          }}
+        />
+      </div>
+    );
+  }
+
+  if (!available && settings.hideUnavailable) {
+    return null;
+  }
+
   const getLogoStyles = (): CSSProperties => {
     const glowOpacity = settings.glowIntensity / 100;
 
-    const baseStyles: CSSProperties = {
+    return {
       width: `${settings.logoSize}px`,
       height: `${settings.logoSize}px`,
       borderRadius: '8px',
@@ -74,8 +111,6 @@ export const GFNLogo: VFC<GFNLogoProps> = ({ available, settings }) => {
            0 0 ${settings.logoSize * 0.6}px rgba(118, 185, 0, ${glowOpacity * 0.2})`
         : 'none',
     };
-
-    return baseStyles;
   };
 
   const getImageStyles = (): CSSProperties => {

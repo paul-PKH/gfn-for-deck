@@ -200,6 +200,14 @@ class Plugin:
             "fresh": total - expired
         }
 
+    async def get_library_stats(self, appids: list) -> Dict[str, any]:
+        """Get GFN availability stats for a list of Steam app IDs"""
+        available = sum(1 for appid in appids if str(appid) in self._local_games_db)
+        return {
+            "total": len(appids),
+            "available": available
+        }
+
     async def get_db_info(self) -> Dict[str, any]:
         """Get local database info for debugging"""
         return {
