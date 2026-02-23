@@ -28,8 +28,12 @@ cp defaults/gfn_games.json gfn-for-deck-package/defaults/gfn_games.json
 
 echo ""
 echo "Deploying to $DECK_USER@$DECK_IP..."
-ssh "$DECK_USER@$DECK_IP" "mkdir -p ~/homebrew/plugins/$PLUGIN_NAME"
+# Use sudo rsync on the remote side so we can write to the root-owned plugin folder
+# Exclude macOS-compiled .so files (won't load on Linux, pure Python fallback is used)
 rsync -avz --delete \
+  --rsync-path="sudo rsync" \
+  --exclude='*.darwin*.so' \
+  --exclude='.DS_Store' \
   gfn-for-deck-package/ \
   "$DEST/"
 
